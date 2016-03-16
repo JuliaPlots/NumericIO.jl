@@ -12,20 +12,20 @@ Provides improved formatted representations of numeric values:
 To obtain a string representation of a `Real` value using SI prefixes, create a `Formatted` object, and `print`, or convert to string:
 
 	fval = Formatted(3.14159e-9, :SI, ndigits=3)
-	println(fval)
-	fstr = string(fval)
+	println(fval) # => 3.14n
+	fstr = string(fval) # => "3.14n"
 
 Similarly, the string representation of a `Real` value using engineering notation is obtained as follows:
 
 	fval = Formatted(3.14159e-9, :ENG, ndigits=3)
-	println(fval)
-	fstr = string(fval)
+	println(fval) # => 3.14e-9
+	fstr = string(fval) # => "3.14e-9"
 
 To format multiple values, simply create a temporary function:
 
 	SI(x) = Formatted(x, :SI, ndigits=4)
-	println(SI(3.14159e-9))
-	println(SI(2.71828e12))
+	println(SI(3.14159e-9)) # => 3.142n
+	println(SI(2.71828e12)) # => 2.718T
 	...
 
 ## Known Limitations
