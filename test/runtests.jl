@@ -15,7 +15,7 @@ for _exp in -30:30
 	println(tf, "@test string(SI($v)) == \"$vstr\"")
 end
 
-for _ndigits in 1:5
+for _ndigits in 0:5
 	println(tf, "SI(v) = Formatted(v, :SI, ndigits=$_ndigits)")
 
 	for _exp in 6:9
@@ -27,7 +27,7 @@ end
 
 _exp = 6
 v = e*10^Float64(_exp)
-for _ndigits in 1:5
+for _ndigits in 0:5
 	println(tf, "dflt(v) = Formatted(v, ndigits=$_ndigits)")
 	vstr = Formatted(v, ndigits=_ndigits)
 	println(tf, "@test string(dflt($v)) == \"$vstr\"")
@@ -104,6 +104,11 @@ SI(v) = Formatted(v, :SI, ndigits=5)
 
 #==Number of digits: Formatting with SI prefixes
 ===============================================================================#
+SI(v) = Formatted(v, :SI, ndigits=0)
+@test string(SI(2.718281828459045e6)) == "2.718281828459045M"
+@test string(SI(2.718281828459045e7)) == "27.18281828459045M"
+@test string(SI(2.718281828459045e8)) == "271.8281828459045M"
+@test string(SI(2.718281828459045e9)) == "2.718281828459045G"
 SI(v) = Formatted(v, :SI, ndigits=1)
 @test string(SI(2.718281828459045e6)) == "3M"
 @test string(SI(2.718281828459045e7)) == "30M"
@@ -133,6 +138,8 @@ SI(v) = Formatted(v, :SI, ndigits=5)
 
 #==Number of digits: Formatting with engineering notation
 ===============================================================================#
+dflt(v) = Formatted(v, ndigits=0)
+@test string(dflt(2.718281828459045e6)) == "2.718281828459045e6"
 dflt(v) = Formatted(v, ndigits=1)
 @test string(dflt(2.718281828459045e6)) == "3.0e6"
 dflt(v) = Formatted(v, ndigits=2)
