@@ -7,20 +7,20 @@ using Base.Test
 if false
 tf = open("testgen.jl", "w")
 _ndigits=5
-println(tf, "SI(v) = Formatted(v, :SI, ndigits=$ndigits)")
+println(tf, "SI(v) = formatted(v, :SI, ndigits=$ndigits)")
 
 for _exp in -30:30
 	v = e*10^Float64(_exp)
-	vstr = Formatted(v, :SI, ndigits=_ndigits)
+	vstr = formatted(v, :SI, ndigits=_ndigits)
 	println(tf, "@test string(SI($v)) == \"$vstr\"")
 end
 
 for _ndigits in 0:5
-	println(tf, "SI(v) = Formatted(v, :SI, ndigits=$_ndigits)")
+	println(tf, "SI(v) = formatted(v, :SI, ndigits=$_ndigits)")
 
 	for _exp in 6:9
 		v = e*10^Float64(_exp)
-		vstr = Formatted(v, :SI, ndigits=_ndigits)
+		vstr = formatted(v, :SI, ndigits=_ndigits)
 		println(tf, "@test string(SI($v)) == \"$vstr\"")
 	end
 end
@@ -28,8 +28,8 @@ end
 _exp = 6
 v = e*10^Float64(_exp)
 for _ndigits in 0:5
-	println(tf, "dflt(v) = Formatted(v, ndigits=$_ndigits)")
-	vstr = Formatted(v, ndigits=_ndigits)
+	println(tf, "dflt(v) = formatted(v, ndigits=$_ndigits)")
+	vstr = formatted(v, ndigits=_ndigits)
 	println(tf, "@test string(dflt($v)) == \"$vstr\"")
 end
 close(tf)
@@ -38,7 +38,7 @@ end
 
 #==Exponent tests: Formatting with SI prefixes
 ===============================================================================#
-SI(v) = Formatted(v, :SI, ndigits=5)
+SI(v) = formatted(v, :SI, ndigits=5)
 @test string(SI(2.7182818284590455e-30)) == "2.7183e-30"
 @test string(SI(2.7182818284590454e-29)) == "2.7183e-29"
 @test string(SI(2.718281828459045e-28)) == "2.7183e-28"
@@ -104,32 +104,32 @@ SI(v) = Formatted(v, :SI, ndigits=5)
 
 #==Number of digits: Formatting with SI prefixes
 ===============================================================================#
-SI(v) = Formatted(v, :SI, ndigits=0)
+SI(v) = formatted(v, :SI, ndigits=0)
 @test string(SI(2.718281828459045e6)) == "2.718281828459045M"
 @test string(SI(2.718281828459045e7)) == "27.18281828459045M"
 @test string(SI(2.718281828459045e8)) == "271.8281828459045M"
 @test string(SI(2.718281828459045e9)) == "2.718281828459045G"
-SI(v) = Formatted(v, :SI, ndigits=1)
+SI(v) = formatted(v, :SI, ndigits=1)
 @test string(SI(2.718281828459045e6)) == "3M"
 @test string(SI(2.718281828459045e7)) == "30M"
 @test string(SI(2.718281828459045e8)) == "300M"
 @test string(SI(2.718281828459045e9)) == "3G"
-SI(v) = Formatted(v, :SI, ndigits=2)
+SI(v) = formatted(v, :SI, ndigits=2)
 @test string(SI(2.718281828459045e6)) == "2.7M"
 @test string(SI(2.718281828459045e7)) == "27M"
 @test string(SI(2.718281828459045e8)) == "270M"
 @test string(SI(2.718281828459045e9)) == "2.7G"
-SI(v) = Formatted(v, :SI, ndigits=3)
+SI(v) = formatted(v, :SI, ndigits=3)
 @test string(SI(2.718281828459045e6)) == "2.72M"
 @test string(SI(2.718281828459045e7)) == "27.2M"
 @test string(SI(2.718281828459045e8)) == "272M"
 @test string(SI(2.718281828459045e9)) == "2.72G"
-SI(v) = Formatted(v, :SI, ndigits=4)
+SI(v) = formatted(v, :SI, ndigits=4)
 @test string(SI(2.718281828459045e6)) == "2.718M"
 @test string(SI(2.718281828459045e7)) == "27.18M"
 @test string(SI(2.718281828459045e8)) == "271.8M"
 @test string(SI(2.718281828459045e9)) == "2.718G"
-SI(v) = Formatted(v, :SI, ndigits=5)
+SI(v) = formatted(v, :SI, ndigits=5)
 @test string(SI(2.718281828459045e6)) == "2.7183M"
 @test string(SI(2.718281828459045e7)) == "27.183M"
 @test string(SI(2.718281828459045e8)) == "271.83M"
@@ -138,23 +138,23 @@ SI(v) = Formatted(v, :SI, ndigits=5)
 
 #==Number of digits: Formatting with engineering notation
 ===============================================================================#
-dflt(v) = Formatted(v, ndigits=0)
+dflt(v) = formatted(v, ndigits=0)
 @test string(dflt(2.718281828459045e6)) == "2.718281828459045e6"
-dflt(v) = Formatted(v, ndigits=1)
+dflt(v) = formatted(v, ndigits=1)
 @test string(dflt(2.718281828459045e6)) == "3.0e6"
-dflt(v) = Formatted(v, ndigits=2)
+dflt(v) = formatted(v, ndigits=2)
 @test string(dflt(2.718281828459045e6)) == "2.7e6"
-dflt(v) = Formatted(v, ndigits=3)
+dflt(v) = formatted(v, ndigits=3)
 @test string(dflt(2.718281828459045e6)) == "2.72e6"
-dflt(v) = Formatted(v, ndigits=4)
+dflt(v) = formatted(v, ndigits=4)
 @test string(dflt(2.718281828459045e6)) == "2.718e6"
-dflt(v) = Formatted(v, ndigits=5)
+dflt(v) = formatted(v, ndigits=5)
 @test string(dflt(2.718281828459045e6)) == "2.7183e6"
 
 
 #==Integer values: Formatting
 ===============================================================================#
-@test string(Formatted(2_718_281_828, :SI, ndigits=3)) == "2.72G"
-@test string(Formatted(2_718_281_828, :ENG, ndigits=3)) == "2.72e9"
+@test string(formatted(2_718_281_828, :SI, ndigits=3)) == "2.72G"
+@test string(formatted(2_718_281_828, :ENG, ndigits=3)) == "2.72e9"
 
 :Tests_Complete
