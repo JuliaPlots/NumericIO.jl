@@ -136,7 +136,7 @@ SI(v) = formatted(v, :SI, ndigits=5)
 @test string(SI(2.718281828459045e9)) == "2.7183G"
 
 
-#==Number of digits: Formatting with engineering notation
+#==Number of digits: Formatting with scientific notation
 ===============================================================================#
 dflt(v) = formatted(v, ndigits=0)
 @test string(dflt(2.718281828459045e6)) == "2.718281828459045e6"
@@ -155,6 +155,6 @@ dflt(v) = formatted(v, ndigits=5)
 #==Integer values: Formatting
 ===============================================================================#
 @test string(formatted(2_718_281_828, :SI, ndigits=3)) == "2.72G"
-@test string(formatted(2_718_281_828, :ENG, ndigits=3)) == "2.72e9"
+@test string(formatted(2_718_281_828, :SCI, ndigits=3)) == "2.72e9"
 
 :Tests_Complete

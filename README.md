@@ -2,7 +2,7 @@
 
 ## Description
 
-Improves output format control for numeric data:
+Improved support for formatting numeric data.
 
  - Includes facilities to display values using SI prefixes (`Y`, `Z`, `E`, `P`, `T`, `G`, `M`, `k`, `m`, &mu;, `n`, `p`, `f`, `a`, `z`, `y`)
  - Makes it easy to control the number of significant digits to display.
@@ -15,9 +15,9 @@ To obtain a string representation of a `Real` value using SI prefixes, one can u
 
 	formatted(3.14159e-9, :SI, ndigits=3) # => "3.14n"
 
-Similarly, the string representation of a `Real` value using engineering notation is obtained as follows:
+Similarly, the string representation of a `Real` value using scientific notation is obtained as follows:
 
-	Formatted(3.14159e-9, :ENG, ndigits=3) # => "3.14e-9"
+	formatted(3.14159e-9, :SCI, ndigits=3) # => "3.14e-9"
 
 It might also be useful to create a convenience formatting function:
 
@@ -33,6 +33,10 @@ To print out multiple values, it is preferable to directly create a FormattedIO 
 	...
 
 ## Known Limitations
+
+ - No support for engineering notation (`:ENG` - like scientific notation, but with exponent restricted to multiples of 3).
+ - Support for SI notation is limited between `y (10e-24)` and `Y (10e24)`.  Values beyond this range default to scientific notation.
+  - Should probably default to engineering notation.
 
 ### Compatibility
 

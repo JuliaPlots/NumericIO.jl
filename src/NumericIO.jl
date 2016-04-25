@@ -5,8 +5,10 @@ module NumericIO
 #=
 Floating-point display modes:
    SHORTEST, FIXED, PRECISION
-Prefixes:
-	:SI (m, μ, n, ...), :ENG (XE-10)
+Notation:
+	:SI (..., m, μ, n, ...)
+	:ENG (..., XE-3, XE-6, XE-9, ...) => not yet supported
+	:SCI (..., XE-3, XE-4, XE-5, ...)
 =#
 
 
@@ -27,7 +29,7 @@ const _SIPREFIXES_OFFSET = 9
 abstract Formatting
 
 immutable FormattingNative <: Formatting; end
-immutable FormattingReal{PREFIX,DISPLAYMODE} <: Formatting
+immutable FormattingReal{NOTATION,DISPLAYMODE} <: Formatting
 	ndigits::Int
 end
 
@@ -45,13 +47,13 @@ end
 #==Constructors
 ===============================================================================#
 #Only support SHORTEST & PRECISION, for now:
-function FormattingReal(pfx::Symbol, ndigits::Int)
+function FormattingReal(notation::Symbol, ndigits::Int)
 	dm = ndigits<1? (Base.Grisu.SHORTEST) : (Base.Grisu.PRECISION)
-	return FormattingReal{pfx,dm}(ndigits)
+	return FormattingReal{notation,dm}(ndigits)
 end
 
-formatted(io::IO, pfx::Symbol=:ENG; ndigits::Int=0) =
-	FormattedIO(io, FormattingReal(pfx, ndigits))
+formatted(io::IO, notation::Symbol=:SCI; ndigits::Int=0) =
+	FormattedIO(io, FormattingReal(notation, ndigits))
 
 
 #==High-level API for figuring out formatting
@@ -67,8 +69,8 @@ Formatting{T<:Real}(io::FormattedIO, ::Type{T}) = io.rfmt
 #Default (native) formatting on IO:
 _print_fmt(io::IO, v, ::FormattingNative) = print(io, v)
 
-#Engineering notation
-function _print_fmt{DM}(io::IO, v::AbstractFloat, fmt::FormattingReal{:ENG,DM})
+#Scientific notation
+function _print_fmt{DM}(io::IO, v::AbstractFloat, fmt::FormattingReal{:SCI,DM})
 	Base.Grisu._show(io, v, DM, fmt.ndigits, false)
 end
 
@@ -125,9 +127,9 @@ Base.read(io::FormattedIO, v) = Base.read(io.stream, v)
 
 #==One-off solution to formatting individual values
 ===============================================================================#
-function formatted(v::Real, pfx::Symbol=:ENG; ndigits::Int=0)
+function formatted(v::Real, notation::Symbol=:SCI; ndigits::Int=0)
 	s = IOBuffer()
-	fio = FormattedIO(s, FormattingReal(pfx, ndigits))
+	fio = FormattedIO(s, FormattingReal(notation, ndigits))
 	print(fio, v)
 	d = s.data
 	resize!(d, s.size)
