@@ -1,5 +1,7 @@
 # NumericIO.jl
 
+[![Build Status](https://travis-ci.org/ma-laforge/NumericIO.jl.svg?branch=master)](https://travis-ci.org/ma-laforge/NumericIO.jl)
+
 ## Description
 
 Improved support for formatting numeric data.
