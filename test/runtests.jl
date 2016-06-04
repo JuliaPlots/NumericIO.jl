@@ -39,6 +39,10 @@ end
 #==Exponent tests: Formatting with SI prefixes
 ===============================================================================#
 SI(v) = formatted(v, :SI, ndigits=5)
+@test string(SI(-2.7182818284590455e-30)) == "-2.7183e-30" #Negative
+@test string(SI(-2.7182818284590453e-24)) == "-2.7183y"
+@test string(SI(-2.718281828459045e30)) == "-2.7183e30"
+
 @test string(SI(2.7182818284590455e-30)) == "2.7183e-30"
 @test string(SI(2.7182818284590454e-29)) == "2.7183e-29"
 @test string(SI(2.718281828459045e-28)) == "2.7183e-28"

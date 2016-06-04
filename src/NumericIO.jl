@@ -89,7 +89,9 @@ function _print_fmt{DM}(io::IO, v::AbstractFloat, fmt::FormattingReal{:SI,DM})
 	xpnt = idx * 3 #Back to exponent, rounded off to SI steps
 	ptshift = pt-xpnt #shifted decimal point location
 	if ptshift < 1 || ptshift > 3 #very small/large numbers (Beyond SI prefixes)
-		return Base.Grisu._show(io, v, DM, fmt.ndigits, false) 
+		return Base.Grisu._show(io, v, DM, fmt.ndigits, false)
+	elseif v < 0
+		write(io, "-")
 	end
 	nchars1 = min(len, ptshift) #Before decimal
 		write(io, pdigits, nchars1)
