@@ -15,107 +15,355 @@ Notation:
 
 #==Constants
 ===============================================================================#
-
-#Don't use μ ... in case some algorithms don't deal well with UTF8:
-const _SIPREFIXES = ASCIIString[
+#TODO: vector Char instead???
+const UTF8_SIPREFIXES = UTF8String[
+	"y", "z", "a", "f", "p", "n", "μ", "m", "",
+	"k", "M", "G", "T", "P", "E", "Z", "Y"
+]
+const ASCII_SIPREFIXES = ASCIIString[
 	"y", "z", "a", "f", "p", "n", "u", "m", "",
 	"k", "M", "G", "T", "P", "E", "Z", "Y"
 ]
+
+const _SIPREFIXES = ASCII_SIPREFIXES
 const _SIPREFIXES_OFFSET = 9
+
+const UTF8_SUPERSCRIPT_NUMERALS = Char['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹']
+#const UTF8_SUPERSCRIPT_MINUS = '⁻'
+#const UTF8_TIMES_SYMBOL = '×'
+const UTF8_MINUS_SYMBOL = '−' #Longer than dash.
+#const UTF8_INF_SYMBOL = '∞'
+const UTF8_INF_STRING = "∞"
+const ASCII_SUPERSCRIPT_NUMERALS = Char['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+#const ASCII_SUPERSCRIPT_MINUS = '-'
+#const ASCII_TIMES_SYMBOL = 'x'
+#const ASCII_MINUS_SYMBOL = '-'
+
+GRISU_FAILURE_WARNED = false
 
 
 #==Base types
 ===============================================================================#
 
-abstract Formatting
+abstract IOFormatting
+immutable IOFormattingNative <: IOFormatting; end
 
-immutable FormattingNative <: Formatting; end
-immutable FormattingReal{NOTATION,DISPLAYMODE} <: Formatting
-	ndigits::Int
+#How to format exponential portion (ex: x10³ / E3 / E+3 / e003 / k / x1000 / ...):
+abstract IOFormattingExp{T<:AbstractString} <: IOFormatting
+
+#Format exponent using numeric values:
+immutable IOFormattingExpNum{T<:AbstractString} <: IOFormattingExp{T}
+	basemult::T #(ex: "x10" / "e" / "E")
+	showexp0::Bool #Show exponent when value is 0?
+	showplus::Bool #Show "+" on exponent portion?
+	plus::Char
+	minus::Char
+	numerals::Vector{Char}
 end
 
-#Not part of T<:IO hierarchy... Formatting would ideally be supported
+#Format exponent using SI notation:
+immutable IOFormattingExpSI{T<:AbstractString} <: IOFormattingExp{T} #SI Notation: 5.8p
+	prefixes::Vector{T}
+	default::IOFormattingExpNum{T}
+end 
+
+#TODO: arbitrary base?
+type IOFormattingReal{T<:AbstractString} <: IOFormatting
+	ndigits::Int #Number of digits to display/maximum digits
+	#displayshortest::Bool #TODO ?use ndigits<1?
+	decpos::Int #Fixed decimal position (value of exponent)
+	decfloating::Bool #Ignores decpos - auto-detects 
+	eng::Bool #Whether to restrict to powers that are multiples of 3 (decfloating=true)
+	#engalign::Int Where to align decimal engieering values (decfloating=true)
+	minus::Char #Potentially use UTF8 '−': Longer than dash.
+	inf::T
+	expdisplay::IOFormattingExp{T}
+end
+
+#Wrapper for IO object that supports formatting of types.
+#Not part of T<:IO hierarchy... IOFormatting would ideally be supported
 #by print API, but this will do for now...
 #TODO: make immutable for efficiency reasons (stack vs heap)?
 #      downside: rfmt becomes immutable (must create new object to change rfmt)
 type FormattedIO{T<:IO}
 	stream::T
-	rfmt::Formatting
-	#TODO: add other formatting??...
+	rfmt::IOFormattingReal
+	#TODO: add other formatting (ex: non-numeric data)??...
 end
+
+
+#==Preset Constants
+===============================================================================#
+#Format exponent using UTF8 characters - ex: 5.8x10⁻¹²
+const UEXPONENT = IOFormattingExpNum{UTF8String}(
+	"×10", true, false, '⁺', '⁻', UTF8_SUPERSCRIPT_NUMERALS
+)
+#Format exponent using ASCII characters - ex: 5.8x10^-12
+const AEXPONENT = IOFormattingExpNum{ASCIIString}(
+	"x10^", true, false, '+', '-', ASCII_SUPERSCRIPT_NUMERALS
+)
+#Format exponent using (ASCII) "E-notation" - ex: 5.8E-12
+const AEXPONENT_E = IOFormattingExpNum{ASCIIString}(
+	"E", true, false, '+', '-', ASCII_SUPERSCRIPT_NUMERALS
+)
+const UEXPONENT_SI = IOFormattingExpSI(UTF8_SIPREFIXES, UEXPONENT)
+const AEXPONENT_SI = IOFormattingExpSI(ASCII_SIPREFIXES, AEXPONENT_E) #Users probably prefer E-notation
+
+
+#==Helper Functions
+===============================================================================#
+
+#Figure out formatting of a giving type:
+#IOFormatting(io::IO, ::Type) = IOFormattingNative() #What would be defined for ::IO (for illustration purposes)
+IOFormatting(io::FormattedIO, ::Type) = IOFormattingNative() #Default: use native formatting
+IOFormatting{T<:Real}(io::FormattedIO, ::Type{T}) = io.rfmt
+
+#Accessors:
+#charset{T<:AbstractString}(::IOFormattingReal{T}) = T #Misnomer: return string type instead.
+showexp0(fmt::IOFormattingExpNum) = fmt.showexp0
+showexp0(::IOFormattingExpSI) = false #Does not matter
+
+function warn_grisufail()
+	global GRISU_FAILURE_WARNED
+	if !GRISU_FAILURE_WARNED
+		warn("Use of Grisu system failed.  Number display will be degraded.")
+	end
+	GRISU_FAILURE_WARNED = true
+end
+
+base10exp(v::AbstractFloat) = floor(log10(abs(v)))
 
 
 #==Constructors
 ===============================================================================#
-#Only support SHORTEST & PRECISION, for now:
-function FormattingReal(notation::Symbol, ndigits::Int)
-	dm = ndigits<1? (Base.Grisu.SHORTEST) : (Base.Grisu.PRECISION)
-	return FormattingReal{notation,dm}(ndigits)
-end
 
-formatted(io::IO, notation::Symbol=:SCI; ndigits::Int=0) =
-	FormattedIO(io, FormattingReal(notation, ndigits))
+IOFormattingReal{T<:AbstractString}(expdisplay::IOFormattingExp{T}; ndigits=3, decpos=1, decfloating=true, eng=true, minus='-', inf=convert(T, "Inf")) =
+	IOFormattingReal{T}(ndigits, decpos, decfloating, eng, minus, inf, expdisplay)
 
-
-#==High-level API for figuring out formatting
-===============================================================================#
-#Formatting(io::IO, ::Type) = FormattingNative() #What would be defined for ::IO (for illustration purposes)
-Formatting(io::FormattedIO, ::Type) = FormattingNative()
-Formatting{T<:Real}(io::FormattedIO, ::Type{T}) = io.rfmt
-
-
-#==Display formatted numbers
-===============================================================================#
-
-#Default (native) formatting on IO:
-_print_fmt(io::IO, v, ::FormattingNative) = print(io, v)
-
-#Scientific notation
-function _print_fmt{DM}(io::IO, v::AbstractFloat, fmt::FormattingReal{:SCI,DM})
-	Base.Grisu._show(io, v, DM, fmt.ndigits, false)
-end
-
-
-#SI notation
-function _print_fmt{DM}(io::IO, v::AbstractFloat, fmt::FormattingReal{:SI,DM})
-	if isinf(v) || isnan(v)
-		return print(io, v)
+function IOFormattingReal(notation::Symbol, T::Type{UTF8String}; ndigits::Int=0, decpos::Int=1, decfloating::Bool=true,
+		minus::Char=UTF8_MINUS_SYMBOL, inf::AbstractString=UTF8_INF_STRING)
+	local expdisplay, eng
+	if :SCI == notation
+		expdisplay=UEXPONENT; eng=false;
+	elseif :ENG == notation
+		expdisplay=UEXPONENT; eng=true;
+	elseif :SI == notation
+		expdisplay=UEXPONENT_SI; eng=true;
+	else
+		error("Unrecognized notation: $notation.")
 	end
-	len, pt, neg, buffer = Base.Grisu.grisu(v, DM, fmt.ndigits)
+	return IOFormattingReal(expdisplay, ndigits=ndigits, decpos=decpos, decfloating=decfloating, eng=eng, minus=minus, inf=inf)
+end
+
+function IOFormattingReal(notation::Symbol, T::Type{ASCIIString}; ndigits::Int=0, decpos::Int=1, decfloating::Bool=true,
+		minus::Char='-', inf::ASCIIString="Inf")
+	local expdisplay, eng
+	if :SCI == notation
+		expdisplay=AEXPONENT_E; eng=false;
+	elseif :ENG == notation
+		expdisplay=AEXPONENT_E; eng=true;
+	elseif :SI == notation
+		expdisplay=AEXPONENT_SI; eng=true;
+	else
+		error("Unrecognized notation: $notation.")
+	end
+	return IOFormattingReal(expdisplay, ndigits=ndigits, decpos=decpos, decfloating=decfloating, eng=eng, minus=minus, inf=inf)
+end
+
+
+#==Main Algorithms
+===============================================================================#
+
+#Print everything before the exponential:
+function print_formatted_mantgrisu(io::IO, val::AbstractFloat, fmt::IOFormattingReal)
+	if val < 0
+		write(io, fmt.minus)
+	elseif isnan(val)
+		write(io, "NaN")
+		return 0
+#TODO: show plus?
+	end
+	if isinf(val)
+		write(io, fmt.inf)
+		return 0
+	end
+
+	#Aliases:
+	const decfloating = fmt.decfloating
+	decpos = fmt.decpos #Only valid if !decfloating
+	ndigits = fmt.ndigits
+	const shortest = ndigits < 1
+	const prec = shortest? Base.Grisu.SHORTEST: Base.Grisu.PRECISION
+	local pt_shifted
+
+	len, pt, neg, buffer = Base.Grisu.grisu(val, prec, ndigits)
+	#NOTE: pt is decimal point location in array (5x10EY has pt=Y+1)
+	if shortest; ndigits = len; end
+
+	if decfloating
+		decpos = pt-1
+		if fmt.eng
+			const engalign = 3 #Show up to 3 digits above decimal before moving to the next 10^3 step
+
+			#Targeted decimal position (show up to engalign digits above decimal):
+			decpos -= engalign-3
+			decpos = floor(Int, decpos/3)*3
+		end
+
+		pt_shifted = pt - decpos
+	elseif 0 == val #&& !decfloating
+		pt_shifted = pt - decpos
+	else #!decfloating
+		pt_shifted = pt - decpos
+
+		if !shortest #Recompute ndgits & buffer.
+			#ndigits corresponds to "displayed" digits... not # of significant digits:
+			if pt_shifted < 1
+				ndigits_disp = max(0, ndigits+pt_shifted-1)
+				#Recalculate buffer for new ndigits (avoid roundoff errors):
+				#TODO: Try to avoid re-calculation???
+				len, pt, neg, buffer = Base.Grisu.grisu(val, prec, ndigits_disp)
+				pt -= decpos #shift decimal point
+			end
+		end
+	end
+
+	grisuleft = len
+	wholeleft = max(0, pt_shifted)
+	fracleft = ndigits-max(1, wholeleft)
+	expleft = decpos
 	pdigits = pointer(buffer)
-	xpnt = pt - 3 #Targeted exponent value (show up to 3 digits above decimal)
-	#Compute index of SI:
-	idx = clamp(ceil(Int,xpnt/3), 1-_SIPREFIXES_OFFSET, length(_SIPREFIXES)-_SIPREFIXES_OFFSET)
-	xpnt = idx * 3 #Back to exponent, rounded off to SI steps
-	ptshift = pt-xpnt #shifted decimal point location
-	if ptshift < 1 || ptshift > 3 #very small/large numbers (Beyond SI prefixes)
-		return Base.Grisu._show(io, v, DM, fmt.ndigits, false)
-	elseif v < 0
-		write(io, "-")
+
+	if wholeleft < 1
+		write(io, "0")
+	else
+		nchars = min(grisuleft, wholeleft)
+		write(io, pdigits, nchars)
+		pdigits += nchars
+		wholeleft -= nchars
+		grisuleft -= nchars
+
+		for i in 1:wholeleft
+			write(io, "0")
+		end
 	end
-	nchars1 = min(len, ptshift) #Before decimal
-		write(io, pdigits, nchars1)
-	nzeros = ptshift-len
+
+	if fracleft < 1
+		return expleft
+	end
+
+	write(io, ".") #TODO: Internationalize: ex: French uses ",".
+
+	leadingzeros = decfloating? 0: max(0, -pt)
+	nzeros = min(leadingzeros, fracleft)
 	for i in 1:nzeros
 		write(io, "0")
 	end
-	nchars2 = -nzeros
-	if nchars2 > 0
-		write(io, ".")
-		write(io, pdigits+nchars1, nchars2)
+	fracleft -= nzeros
+
+	nchars = min(grisuleft, fracleft)
+	write(io, pdigits, nchars)
+	fracleft -= nchars
+
+	for i in 1:fracleft
+		write(io, "0")
 	end
-	idx += _SIPREFIXES_OFFSET
-	print(io, _SIPREFIXES[idx])
+
+	return expleft
 end
 
-_print_fmt(io::IO, v::Real, fmt::FormattingReal) =
-	_print_fmt(io, convert(AbstractFloat, v), fmt)
+#Display mantissa - using failsafe in case GRISU interface changes.
+function print_formatted_mant(io::IO, val::AbstractFloat, fmt::IOFormattingReal)
+	try
+#		throw(:TESTME) #TODO
+		return print_formatted_mantgrisu(io, val, fmt)
+	catch e #In case GRISU API changes:
+#rethrow(e)
+		warn_grisufail()
+		exp = base10exp(val)
+		if !isfinite(exp)
+			exp = 0
+		else
+			exp = round(Int, exp) #Needed in Int form
+			exp += fmt.decpos
+		end
+		val /= 10.0^exp
+		@printf(io, "%.3f", val) #Display something
+		return exp
+	end
+end
 
-#==HACK-ish: Provide base IO-like functionality
-(Preferable to have IO support Formatting directly)
+#Exponents displayed using numeric notation:
+function print_formatted_exp(io::IO, fmt::IOFormattingExpNum, exp::Int)
+	write(io, fmt.basemult)
+	exp_str = "$exp"
+
+	c = exp_str[1]
+	if '-' == c
+		write(io, fmt.minus)
+	elseif fmt.showplus
+		write(io, fmt.plus)
+	end
+
+	for c in exp_str
+		if isnumber(c)
+			idx = c - ('0' - 1)
+			write(io, fmt.numerals[idx])
+		end
+	end
+	nothing
+end
+
+#Exponents displayed using SI notation:
+function print_formatted_exp(io::IO, fmt::IOFormattingExpSI, exp::Int)
+	fidx = exp/3
+	idx = round(Int, fidx)
+	if idx != fidx #Is isinteger() safe in this context?
+		#TODO: throw error instead?... or maybe print x10n or x100n, ... ?
+		#Just print using "numeric formatting" fallback for the moment:
+		return print_formatted_exp(io, fmt.default, exp)
+	end
+
+	idx += _SIPREFIXES_OFFSET
+	if idx > 0 && idx <= length(fmt.prefixes)
+		print(io, fmt.prefixes[idx])
+	else #Fall back to using "numeric formatting" on exponent:
+		print_formatted_exp(io, fmt.default, exp)
+	end
+	return nothing
+end
+
+function print_formatted_exp(io::IO, fmt::IOFormattingReal)
+	@assert(!fmt.decfloating, "Cannot currently determine exponent when decimal is floating.")
+	exp = fmt.decpos #Just showing exponential portion...
+	if fmt.showexp0 || exp != 0
+		print_formatted_exp(io, fmt, exp)
+	end
+end
+
+
+#==Intermediate print_formatted "interface"
 ===============================================================================#
 
-Base.print(io::FormattedIO, v) = _print_fmt(io.stream, v, Formatting(io, typeof(v)))
+#Default (native) formatting on IO:
+print_formatted(io::IO, v, ::IOFormattingNative) = print(io, v)
+
+function print_formatted(io::IO, val::AbstractFloat, fmt::IOFormattingReal, showexp::Bool)
+	exp = print_formatted_mant(io, val, fmt)
+	if isfinite(val) && showexp && (showexp0(fmt.expdisplay) || exp != 0)
+		print_formatted_exp(io, fmt.expdisplay, exp)
+	end
+end
+
+print_formatted(io::IO, v::Real, fmt::IOFormattingReal; showexp::Bool=true) =
+	print_formatted(io, convert(AbstractFloat, v), fmt, showexp)
+
+
+#==HACK-ish: Provide base IO-like functionality
+(Preferable to have IO support IOFormatting directly)
+===============================================================================#
+
+Base.print(io::FormattedIO, v) = print_formatted(io.stream, v, IOFormatting(io, typeof(v)))
 function Base.print(io::FormattedIO, xs...)
 	for x in xs
 		print(io, x)
@@ -128,17 +376,28 @@ Base.write(io::FormattedIO, v) = Base.write(io.stream, v)
 Base.read(io::FormattedIO, v) = Base.read(io.stream, v)
 
 
-#==One-off solution to formatting individual values
+#==User-Level "formatted" interface
 ===============================================================================#
-function formatted(v::Real, notation::Symbol=:SCI; ndigits::Int=0)
+formatted(io::IO, fmt::IOFormattingReal) = FormattedIO(io, fmt)
+
+#NOTE: No type for characterset... use string type instead.
+#TODO: Add ::Type{Real} to signature??
+formatted{T<:AbstractString}(io::IO, notation::Symbol=:SCI; ndigits::Int=0, charset::Type{T}=UTF8String) =
+	FormattedIO(io, IOFormattingReal(notation, charset, ndigits=ndigits))
+
+#One-off solution to formatting individual values:
+function formatted(v::Real, fmt::IOFormattingReal)
 	s = IOBuffer()
-	fio = FormattedIO(s, FormattingReal(notation, ndigits))
+	fio = FormattedIO(s, fmt)
 	print(fio, v)
 	d = s.data
 	resize!(d, s.size)
 	return bytestring(d)
 end
+formatted{T<:AbstractString}(v::Real, notation::Symbol=:SCI; ndigits::Int=0, charset::Type{T}=UTF8String) =
+	formatted(v, IOFormattingReal(notation, charset, ndigits=ndigits))
 
 
 export formatted
+
 end #Module NumericIO
