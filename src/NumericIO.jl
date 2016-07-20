@@ -54,7 +54,6 @@ abstract IOFormattingExp{T<:AbstractString} <: IOFormatting
 #Format exponent using numeric values:
 immutable IOFormattingExpNum{T<:AbstractString} <: IOFormattingExp{T}
 	basemult::T #(ex: "x10" / "e" / "E")
-	showexp0::Bool #Show exponent when value is 0?
 	showplus::Bool #Show "+" on exponent portion?
 	plus::Char
 	minus::Char
@@ -73,6 +72,7 @@ type IOFormattingReal{T<:AbstractString} <: IOFormatting
 	#displayshortest::Bool #TODO ?use ndigits<1?
 	decpos::Int #Fixed decimal position (value of exponent)
 	decfloating::Bool #Ignores decpos - auto-detects 
+	showexp0::Bool #Show exponent when value is 0?
 	eng::Bool #Whether to restrict to powers that are multiples of 3 (decfloating=true)
 	#engalign::Int Where to align decimal engieering values (decfloating=true)
 	minus::Char #Potentially use UTF8 '−': Longer than dash.
@@ -96,15 +96,15 @@ end
 ===============================================================================#
 #Format exponent using UTF8 characters - ex: 5.8x10⁻¹²
 const UEXPONENT = IOFormattingExpNum{UTF8String}(
-	"×10", true, false, '⁺', '⁻', UTF8_SUPERSCRIPT_NUMERALS
+	"×10", false, '⁺', '⁻', UTF8_SUPERSCRIPT_NUMERALS
 )
 #Format exponent using ASCII characters - ex: 5.8x10^-12
 const AEXPONENT = IOFormattingExpNum{ASCIIString}(
-	"x10^", true, false, '+', '-', ASCII_SUPERSCRIPT_NUMERALS
+	"x10^", false, '+', '-', ASCII_SUPERSCRIPT_NUMERALS
 )
 #Format exponent using (ASCII) "E-notation" - ex: 5.8E-12
 const AEXPONENT_E = IOFormattingExpNum{ASCIIString}(
-	"E", true, false, '+', '-', ASCII_SUPERSCRIPT_NUMERALS
+	"E", false, '+', '-', ASCII_SUPERSCRIPT_NUMERALS
 )
 const UEXPONENT_SI = IOFormattingExpSI(UTF8_SIPREFIXES, UEXPONENT)
 const AEXPONENT_SI = IOFormattingExpSI(ASCII_SIPREFIXES, AEXPONENT_E) #Users probably prefer E-notation
@@ -120,8 +120,6 @@ IOFormatting{T<:Real}(io::FormattedIO, ::Type{T}) = io.rfmt
 
 #Accessors:
 #charset{T<:AbstractString}(::IOFormattingReal{T}) = T #Misnomer: return string type instead.
-showexp0(fmt::IOFormattingExpNum) = fmt.showexp0
-showexp0(::IOFormattingExpSI) = false #Does not matter
 
 function warn_grisufail()
 	global GRISU_FAILURE_WARNED
@@ -137,10 +135,12 @@ base10exp(v::AbstractFloat) = floor(log10(abs(v)))
 #==Constructors
 ===============================================================================#
 
-IOFormattingReal{T<:AbstractString}(expdisplay::IOFormattingExp{T}; ndigits=3, decpos=1, decfloating=true, eng=true, minus='-', inf=convert(T, "Inf")) =
-	IOFormattingReal{T}(ndigits, decpos, decfloating, eng, minus, inf, expdisplay)
+IOFormattingReal{T<:AbstractString}(expdisplay::IOFormattingExp{T}; ndigits=3,
+		decpos=1, decfloating=true, showexp0=true, eng=true, minus='-', inf=convert(T, "Inf")) =
+	IOFormattingReal{T}(ndigits, decpos, decfloating, showexp0, eng, minus, inf, expdisplay)
 
-function IOFormattingReal(notation::Symbol, T::Type{UTF8String}; ndigits::Int=0, decpos::Int=1, decfloating::Bool=true,
+function IOFormattingReal(notation::Symbol, T::Type{UTF8String}; ndigits::Int=0,
+		decpos::Int=1, decfloating::Bool=true, showexp0::Bool=true,
 		minus::Char=UTF8_MINUS_SYMBOL, inf::AbstractString=UTF8_INF_STRING)
 	local expdisplay, eng
 	if :SCI == notation
@@ -152,10 +152,13 @@ function IOFormattingReal(notation::Symbol, T::Type{UTF8String}; ndigits::Int=0,
 	else
 		error("Unrecognized notation: $notation.")
 	end
-	return IOFormattingReal(expdisplay, ndigits=ndigits, decpos=decpos, decfloating=decfloating, eng=eng, minus=minus, inf=inf)
+	return IOFormattingReal(expdisplay, ndigits=ndigits, decpos=decpos, decfloating=decfloating,
+		showexp0=showexp0, eng=eng, minus=minus, inf=inf
+	)
 end
 
-function IOFormattingReal(notation::Symbol, T::Type{ASCIIString}; ndigits::Int=0, decpos::Int=1, decfloating::Bool=true,
+function IOFormattingReal(notation::Symbol, T::Type{ASCIIString}; ndigits::Int=0,
+		decpos::Int=1, decfloating::Bool=true, showexp0::Bool=true,
 		minus::Char='-', inf::ASCIIString="Inf")
 	local expdisplay, eng
 	if :SCI == notation
@@ -167,7 +170,9 @@ function IOFormattingReal(notation::Symbol, T::Type{ASCIIString}; ndigits::Int=0
 	else
 		error("Unrecognized notation: $notation.")
 	end
-	return IOFormattingReal(expdisplay, ndigits=ndigits, decpos=decpos, decfloating=decfloating, eng=eng, minus=minus, inf=inf)
+	return IOFormattingReal(expdisplay, ndigits=ndigits, decpos=decpos, decfloating=decfloating,
+		showexp0=showexp0, eng=eng, minus=minus, inf=inf
+	)
 end
 
 
@@ -212,19 +217,20 @@ function print_formatted_mantgrisu(io::IO, val::AbstractFloat, fmt::IOFormatting
 
 		pt_shifted = pt - decpos
 	elseif 0 == val #&& !decfloating
-		pt_shifted = pt - decpos
+		pt_shifted = 1 #0*anything=0.  Just make output look good.
 	else #!decfloating
 		pt_shifted = pt - decpos
 
 		if !shortest #Recompute ndgits & buffer.
 			#ndigits corresponds to "displayed" digits... not # of significant digits:
-			if pt_shifted < 1
+			if pt_shifted < 2 #Some digits had to be clipped
+#TODO: Also don't have to recompute if "len" was so short that no rounding is necessary.
 				ndigits_disp = max(0, ndigits+pt_shifted-1)
 				#Recalculate buffer for new ndigits (avoid roundoff errors):
 				#TODO: Try to avoid re-calculation???
 				len, pt, neg, buffer = Base.Grisu.grisu(val, prec, ndigits_disp)
-				pt -= decpos #shift decimal point
 			end
+			pt -= decpos #shift decimal point
 		end
 	end
 
@@ -334,15 +340,15 @@ function print_formatted_exp(io::IO, fmt::IOFormattingExpSI, exp::Int)
 end
 
 function print_formatted_exp(io::IO, fmt::IOFormattingReal)
-	@assert(!fmt.decfloating, "Cannot currently determine exponent when decimal is floating.")
+	@assert(!fmt.decfloating, "Cannot determine exponent when decimal is floating.")
 	exp = fmt.decpos #Just showing exponential portion...
 	if fmt.showexp0 || exp != 0
-		print_formatted_exp(io, fmt, exp)
+		print_formatted_exp(io, fmt.expdisplay, exp)
 	end
 end
 
 
-#==Intermediate print_formatted "interface"
+#==Intermediate print_formatted/string_formatted interfaces
 ===============================================================================#
 
 #Default (native) formatting on IO:
@@ -350,13 +356,22 @@ print_formatted(io::IO, v, ::IOFormattingNative) = print(io, v)
 
 function print_formatted(io::IO, val::AbstractFloat, fmt::IOFormattingReal, showexp::Bool)
 	exp = print_formatted_mant(io, val, fmt)
-	if isfinite(val) && showexp && (showexp0(fmt.expdisplay) || exp != 0)
+	if isfinite(val) && showexp && (fmt.showexp0 || exp != 0)
 		print_formatted_exp(io, fmt.expdisplay, exp)
 	end
 end
 
 print_formatted(io::IO, v::Real, fmt::IOFormattingReal; showexp::Bool=true) =
 	print_formatted(io, convert(AbstractFloat, v), fmt, showexp)
+
+#One-off solution to formatting individual values:
+function string_formatted(v::Real, fmt::IOFormattingReal; showexp::Bool=true)
+	s = IOBuffer()
+	print_formatted(s, v, fmt, showexp=showexp)
+	d = s.data
+	resize!(d, s.size)
+	return bytestring(d)
+end
 
 
 #==HACK-ish: Provide base IO-like functionality
@@ -386,18 +401,15 @@ formatted{T<:AbstractString}(io::IO, notation::Symbol=:SCI; ndigits::Int=0, char
 	FormattedIO(io, IOFormattingReal(notation, charset, ndigits=ndigits))
 
 #One-off solution to formatting individual values:
-function formatted(v::Real, fmt::IOFormattingReal)
-	s = IOBuffer()
-	fio = FormattedIO(s, fmt)
-	print(fio, v)
-	d = s.data
-	resize!(d, s.size)
-	return bytestring(d)
-end
-formatted{T<:AbstractString}(v::Real, notation::Symbol=:SCI; ndigits::Int=0, charset::Type{T}=UTF8String) =
-	formatted(v, IOFormattingReal(notation, charset, ndigits=ndigits))
+formatted(v::Real, fmt::IOFormattingReal; showexp::Bool=true) =
+	string_formatted(v, fmt, showexp=showexp)
+formatted{T<:AbstractString}(v::Real, notation::Symbol=:SCI; ndigits::Int=0, charset::Type{T}=UTF8String,
+		showexp::Bool=true) =
+	string_formatted(v, IOFormattingReal(notation, charset, ndigits=ndigits), showexp=showexp)
 
 
+#==Exported interface (keep mimimal to avoid collisions).
+===============================================================================#
 export formatted
 
 end #Module NumericIO
