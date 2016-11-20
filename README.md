@@ -27,7 +27,7 @@ Or using engineering notation (limiting to powers divisible by 3) with:
 
 To limit results to `ASCII` output, specify the `charset` keyword:
 
-	formatted(3.14159e-8, :ENG, ndigits=3, charset=ASCIIString) # => "31.4E-9"
+	formatted(3.14159e-8, :ENG, ndigits=3, charset=:ASCII) # => "31.4E-9"
 
 One might also prefer to create a convenience formatting function:
 
@@ -46,8 +46,8 @@ To print out multiple values, it is preferable (more efficient) to directly crea
 
 Lower-level structures of NumericIO can be used to fine-tune numeric output even further, if desired.  The following shows an example that approximates engineering notation using the `ASCII` characterset only:
 
-	asciiexponentfmt = NumericIO.IOFormattingExpNum{ASCIIString}(
-		"x10^", true, false, '+', '-', NumericIO.ASCII_SUPERSCRIPT_NUMERALS
+	asciiexponentfmt = NumericIO.IOFormattingExpNum(
+		"x10^", false, '+', '-', NumericIO.ASCII_SUPERSCRIPT_NUMERALS
 	)
 	fmt = NumericIO.IOFormattingReal(asciiexponentfmt,
 		ndigits=4, decpos=0, decfloating=true, eng=true, minus='-', inf="Inf"
@@ -68,4 +68,4 @@ It is also possible to generate the mantissa & exponent portions of a number sep
 
 Extensive compatibility testing of NumericIO.jl has not been performed.  The module has been tested using the following environment(s):
 
- - Linux / Julia-0.4.5
+ - Windows / Linux / Julia-0.5.0

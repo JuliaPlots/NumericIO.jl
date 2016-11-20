@@ -36,8 +36,14 @@ close(tf)
 end
 
 
+#==Helper functions
+===============================================================================#
+newscope(fn::Function) = (fn()) #Allow re-definition of SI(v) / dflt(v)
+
+
 #==Exponent tests: Formatting with SI prefixes
 ===============================================================================#
+newscope() do
 SI(v) = formatted(v, :SI, ndigits=5)
 @test SI(-2.7182818284590455e-30) == "−2.7183×10⁻³⁰" #Negative
 @test SI(-2.7182818284590453e-24) == "−2.7183y"
@@ -104,56 +110,81 @@ SI(v) = formatted(v, :SI, ndigits=5)
 @test SI(2.718281828459045e28) == "27.183×10²⁷"
 @test SI(2.7182818284590454e29) == "271.83×10²⁷"
 @test SI(2.718281828459045e30) == "2.7183×10³⁰"
+end
 
 
 #==Number of digits: Formatting with SI prefixes
 ===============================================================================#
+newscope() do
 SI(v) = formatted(v, :SI, ndigits=0)
 @test SI(2.718281828459045e6) == "2.718281828459045M"
 @test SI(2.718281828459045e7) == "27.18281828459045M"
 @test SI(2.718281828459045e8) == "271.8281828459045M"
 @test SI(2.718281828459045e9) == "2.718281828459045G"
+end
+newscope() do
 SI(v) = formatted(v, :SI, ndigits=1)
 @test SI(2.718281828459045e6) == "3M"
 @test SI(2.718281828459045e7) == "30M"
 @test SI(2.718281828459045e8) == "300M"
 @test SI(2.718281828459045e9) == "3G"
+end
+newscope() do
 SI(v) = formatted(v, :SI, ndigits=2)
 @test SI(2.718281828459045e6) == "2.7M"
 @test SI(2.718281828459045e7) == "27M"
 @test SI(2.718281828459045e8) == "270M"
 @test SI(2.718281828459045e9) == "2.7G"
+end
+newscope() do
 SI(v) = formatted(v, :SI, ndigits=3)
 @test SI(2.718281828459045e6) == "2.72M"
 @test SI(2.718281828459045e7) == "27.2M"
 @test SI(2.718281828459045e8) == "272M"
 @test SI(2.718281828459045e9) == "2.72G"
+end
+newscope() do
 SI(v) = formatted(v, :SI, ndigits=4)
 @test SI(2.718281828459045e6) == "2.718M"
 @test SI(2.718281828459045e7) == "27.18M"
 @test SI(2.718281828459045e8) == "271.8M"
 @test SI(2.718281828459045e9) == "2.718G"
+end
+newscope() do
 SI(v) = formatted(v, :SI, ndigits=5)
 @test SI(2.718281828459045e6) == "2.7183M"
 @test SI(2.718281828459045e7) == "27.183M"
 @test SI(2.718281828459045e8) == "271.83M"
 @test SI(2.718281828459045e9) == "2.7183G"
+end
 
 
 #==Number of digits: Formatting with scientific notation
 ===============================================================================#
+newscope() do
 dflt(v) = formatted(v, ndigits=0)
 @test dflt(2.718281828459045e6) == "2.718281828459045×10⁶"
+end
+newscope() do
 dflt(v) = formatted(v, ndigits=1)
 @test dflt(2.718281828459045e6) == "3×10⁶"
+end
+newscope() do
 dflt(v) = formatted(v, ndigits=2)
 @test dflt(2.718281828459045e6) == "2.7×10⁶"
+end
+newscope() do
 dflt(v) = formatted(v, ndigits=3)
 @test dflt(2.718281828459045e6) == "2.72×10⁶"
+end
+newscope() do
 dflt(v) = formatted(v, ndigits=4)
 @test dflt(2.718281828459045e6) == "2.718×10⁶"
+end
+newscope() do
 dflt(v) = formatted(v, ndigits=5)
 @test dflt(2.718281828459045e6) == "2.7183×10⁶"
+end
 
 
 #==Integer values: Formatting
@@ -161,7 +192,7 @@ dflt(v) = formatted(v, ndigits=5)
 @test formatted(27_182_818_284, :SI, ndigits=3) == "27.2G"
 @test formatted(27_182_818_284, :ENG, ndigits=3) == "27.2×10⁹"
 @test formatted(27_182_818_284, :SCI, ndigits=3) == "2.72×10¹⁰"
-@test formatted(27_182_818_284, :SCI, ndigits=3, charset=ASCIIString) == "2.72E10"
+@test formatted(27_182_818_284, :SCI, ndigits=3, charset=:ASCII) == "2.72E10"
 
 
 #==Fixed ndigits, fixed decpos
@@ -171,6 +202,7 @@ fmt = NumericIO.IOFormattingReal(NumericIO.UEXPONENT_SI,
 	ndigits=4, decpos=9, decfloating=false, eng=true,
 	minus=NumericIO.UTF8_MINUS_SYMBOL, inf=NumericIO.UTF8_INF_STRING
 )
+newscope() do
 SI(v) = formatted(v, fmt)
 @test SI(2.718281828459045e5) == "0.000G"
 @test SI(2.718281828459045e6) == "0.003G"
@@ -181,5 +213,6 @@ SI(v) = formatted(v, fmt)
 @test SI(2.718281828459045e11) == "271.8G"
 @test SI(2.718281828459045e12) == "2718G"
 @test SI(2.718281828459045e13) == "27180G"
+end
 
 :Tests_Complete
