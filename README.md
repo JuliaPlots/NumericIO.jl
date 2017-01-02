@@ -66,7 +66,7 @@ Users can make REPL outputs easier to read, simply by adding a few lines to thei
 
 ```
 using NumericIO
-Base.display(r::Base.REPL.REPLDisplay, v::Union{Float32,Float64}) = print(Base.REPL.outstream(r.repl), formatted(v, :SI, ndigits=4))
+Base.display(r::Base.REPL.REPLDisplay, v::Union{Float32,Float64}) = print(formatted(Base.REPL.outstream(r.repl), :SI, ndigits=4), v)
 ```
 
 This solution should be fairly safe: few programmers writing to REPL displays would later read back values from said display (failing the subsequent read operation).  The most likely issue with this application is that programmers expecting carefully formatted output would now have suboptimal-looking output.
