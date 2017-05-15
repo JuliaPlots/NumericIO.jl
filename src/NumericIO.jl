@@ -45,13 +45,13 @@ GRISU_FAILURE_WARNED = false
 #==Base types
 ===============================================================================#
 
-abstract Charset{T}
+abstract type Charset{T} end
 
-abstract IOFormatting
+abstract type IOFormatting end
 immutable IOFormattingNative <: IOFormatting; end
 
 #How to format exponential portion (ex: x10³ / E3 / E+3 / e003 / k / x1000 / ...):
-abstract IOFormattingExp <: IOFormatting
+abstract type IOFormattingExp <: IOFormatting end
 
 #Format exponent using numeric values:
 immutable IOFormattingExpNum <: IOFormattingExp
