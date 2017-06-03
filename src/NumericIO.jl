@@ -48,13 +48,13 @@ GRISU_FAILURE_WARNED = false
 abstract type Charset{T} end
 
 abstract type IOFormatting end
-immutable IOFormattingNative <: IOFormatting; end
+struct IOFormattingNative <: IOFormatting; end
 
 #How to format exponential portion (ex: x10³ / E3 / E+3 / e003 / k / x1000 / ...):
 abstract type IOFormattingExp <: IOFormatting end
 
 #Format exponent using numeric values:
-immutable IOFormattingExpNum <: IOFormattingExp
+struct IOFormattingExpNum <: IOFormattingExp
 	basemult::String #(ex: "x10" / "e" / "E")
 	showplus::Bool #Show "+" on exponent portion?
 	plus::Char
@@ -63,13 +63,13 @@ immutable IOFormattingExpNum <: IOFormattingExp
 end
 
 #Format exponent using SI notation:
-immutable IOFormattingExpSI <: IOFormattingExp #SI Notation: 5.8p
+struct IOFormattingExpSI <: IOFormattingExp #SI Notation: 5.8p
 	prefixes::Vector{String}
 	default::IOFormattingExpNum
 end 
 
 #TODO: arbitrary base?
-type IOFormattingReal <: IOFormatting
+mutable struct IOFormattingReal <: IOFormatting
 	ndigits::Int #Number of digits to display/maximum digits
 	#displayshortest::Bool #TODO ?use ndigits<1?
 	decpos::Int #Fixed decimal position (value of exponent)
@@ -87,7 +87,7 @@ end
 #by print API, but this will do for now...
 #TODO: make immutable for efficiency reasons (stack vs heap)?
 #      downside: rfmt becomes immutable (must create new object to change rfmt)
-type FormattedIO{T<:IO}
+mutable struct FormattedIO{T<:IO}
 	stream::T
 	rfmt::IOFormattingReal
 	#TODO: add other formatting (ex: non-numeric data)??...
