@@ -1,39 +1,40 @@
 using NumericIO
-using Base.Test
+using Test
 
 
 #==Generate test code
 ===============================================================================#
-if false
-tf = open("testgen.jl", "w")
-_ndigits=5
-println(tf, "SI(v) = formatted(v, :SI, ndigits=$ndigits)")
-
-for _exp in -30:30
-	v = e*10^Float64(_exp)
-	vstr = formatted(v, :SI, ndigits=_ndigits)
-	println(tf, "@test SI($v) == \"$vstr\"")
-end
-
-for _ndigits in 0:5
+function _gentestcode()
+	tf = open("testgen.jl", "w")
+	_ndigits=5
 	println(tf, "SI(v) = formatted(v, :SI, ndigits=$_ndigits)")
 
-	for _exp in 6:9
+	for _exp in -30:30
 		v = e*10^Float64(_exp)
 		vstr = formatted(v, :SI, ndigits=_ndigits)
 		println(tf, "@test SI($v) == \"$vstr\"")
 	end
-end
 
-_exp = 6
-v = e*10^Float64(_exp)
-for _ndigits in 0:5
-	println(tf, "dflt(v) = formatted(v, ndigits=$_ndigits)")
-	vstr = formatted(v, ndigits=_ndigits)
-	println(tf, "@test dflt($v) == \"$vstr\"")
+	for _ndigits in 0:5
+		println(tf, "SI(v) = formatted(v, :SI, ndigits=$_ndigits)")
+
+		for _exp in 6:9
+			v = e*10^Float64(_exp)
+			vstr = formatted(v, :SI, ndigits=_ndigits)
+			println(tf, "@test SI($v) == \"$vstr\"")
+		end
+	end
+
+	_exp = 6
+	v = e*10^Float64(_exp)
+	for _ndigits in 0:5
+		println(tf, "dflt(v) = formatted(v, ndigits=$_ndigits)")
+		vstr = formatted(v, ndigits=_ndigits)
+		println(tf, "@test dflt($v) == \"$vstr\"")
+	end
+	close(tf)
 end
-close(tf)
-end
+#_gentestcode()
 
 
 #==Helper functions

@@ -1,5 +1,4 @@
 #NumericIO: Formatting tools
-__precompile__()
 
 module NumericIO
 #-------------------------------------------------------------------------------
@@ -11,6 +10,8 @@ Notation:
 	:ENG (..., XE-3, XE-6, XE-9, ...) => not yet supported
 	:SCI (..., XE-3, XE-4, XE-5, ...)
 =#
+
+import Printf.@printf
 
 
 #==Constants
@@ -118,7 +119,7 @@ const AEXPONENT_SI = IOFormattingExpSI(ASCII_SIPREFIXES, AEXPONENT_E) #Users pro
 #Figure out formatting of a giving type:
 #IOFormatting(io::IO, ::Type) = IOFormattingNative() #What would be defined for ::IO (for illustration purposes)
 IOFormatting(io::FormattedIO, ::Type) = IOFormattingNative() #Default: use native formatting
-IOFormatting{T<:Real}(io::FormattedIO, ::Type{T}) = io.rfmt
+IOFormatting(io::FormattedIO, ::Type{T}) where T<:Real = io.rfmt
 
 #Accessors:
 #charset(::IOFormattingReal) = ... #TODO: implement
@@ -196,11 +197,11 @@ function print_formatted_mantgrisu(io::IO, val::AbstractFloat, fmt::IOFormatting
 	end
 
 	#Aliases:
-	const decfloating = fmt.decfloating
+	decfloating = fmt.decfloating #WANTCONST
 	decpos = fmt.decpos #Only valid if !decfloating
 	ndigits = fmt.ndigits
-	const shortest = ndigits < 1
-	const prec = shortest? Base.Grisu.SHORTEST: Base.Grisu.PRECISION
+	shortest = ndigits < 1 #WANTCONST
+	prec = shortest ? Base.Grisu.SHORTEST : Base.Grisu.PRECISION #WANTCONST
 	local pt_shifted
 
 	len, pt, neg = Base.Grisu.grisu(val, prec, ndigits)
@@ -212,7 +213,7 @@ function print_formatted_mantgrisu(io::IO, val::AbstractFloat, fmt::IOFormatting
 	if decfloating
 		decpos = pt-1
 		if fmt.eng
-			const engalign = 3 #Show up to 3 digits above decimal before moving to the next 10^3 step
+			engalign = 3 #WANTCONST: Show up to 3 digits above decimal before moving to the next 10^3 step
 
 			#Targeted decimal position (show up to engalign digits above decimal):
 			decpos -= engalign-3
@@ -265,7 +266,7 @@ function print_formatted_mantgrisu(io::IO, val::AbstractFloat, fmt::IOFormatting
 
 	write(io, ".") #TODO: Internationalize: ex: French uses ",".
 
-	leadingzeros = decfloating? 0: max(0, -pt)
+	leadingzeros = decfloating ? 0 : max(0, -pt)
 	nzeros = min(leadingzeros, fracleft)
 	for i in 1:nzeros
 		write(io, "0")
@@ -317,7 +318,7 @@ function print_formatted_exp(io::IO, fmt::IOFormattingExpNum, exp::Int)
 	end
 
 	for c in exp_str
-		if isnumber(c)
+		if isnumeric(c)
 			idx = c - ('0' - 1)
 			write(io, fmt.numerals[idx])
 		end
