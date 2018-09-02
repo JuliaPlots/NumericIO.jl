@@ -1,4 +1,5 @@
 #NumericIO: Formatting tools
+__precompile__(true)
 
 module NumericIO
 #-------------------------------------------------------------------------------
