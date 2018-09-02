@@ -127,7 +127,7 @@ IOFormatting(io::FormattedIO, ::Type{T}) where T<:Real = io.rfmt
 function warn_grisufail()
 	global GRISU_FAILURE_WARNED
 	if !GRISU_FAILURE_WARNED
-		warn("Use of Grisu system failed.  Number display will be degraded.")
+		@warn("Use of Grisu system failed.  Number display will be degraded.")
 	end
 	GRISU_FAILURE_WARNED = true
 end
