@@ -106,4 +106,4 @@ Note however, that `show()` is a lower level function, and this definition is mo
 
 Extensive compatibility testing of NumericIO.jl has not been performed.  The module has been tested using the following environment(s):
 
- - Windows / Linux / Julia-0.7.0
+ - Windows / Linux / Julia-1.1.1
