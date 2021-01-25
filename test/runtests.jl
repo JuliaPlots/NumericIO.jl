@@ -190,10 +190,32 @@ end
 
 #==Integer values: Formatting
 ===============================================================================#
+@test formatted(0, :SI, ndigits=0) == "0" #Ensure not "0.00000000..."
 @test formatted(27_182_818_284, :SI, ndigits=3) == "27.2G"
 @test formatted(27_182_818_284, :ENG, ndigits=3) == "27.2×10⁹"
 @test formatted(27_182_818_284, :SCI, ndigits=3) == "2.72×10¹⁰"
 @test formatted(27_182_818_284, :SCI, ndigits=3, charset=:ASCII) == "2.72E10"
+
+
+#==Max ndigits, fixed decpos
+===============================================================================#
+fmt = NumericIO.IOFormattingReal(NumericIO.UEXPONENT_SI,
+	ndigits=0, decpos=9, decfloating=false, eng=true,
+	minus=NumericIO.UTF8_MINUS_SYMBOL, inf=NumericIO.UTF8_INF_STRING
+)
+newscope() do
+SI(v) = formatted(v, fmt)
+@test SI(0) == "0G" #Ensure not "0.00000000...G"
+@test SI(2.718281828459045e5) == "0.0002718281828459045G"
+@test SI(2.718281828459045e6) == "0.002718281828459045G"
+@test SI(2.718281828459045e7) == "0.02718281828459045G"
+@test SI(2.718281828459045e8) == "0.2718281828459045G"
+@test SI(2.718281828459045e9) == "2.718281828459045G"
+@test SI(2.718281828459045e10) == "27.18281828459045G"
+@test SI(2.718281828459045e11) == "271.8281828459045G"
+@test SI(2.718281828459045e12) == "2718.281828459045G"
+@test SI(2.718281828459045e13) == "27182.81828459045G"
+end
 
 
 #==Fixed ndigits, fixed decpos
@@ -205,6 +227,7 @@ fmt = NumericIO.IOFormattingReal(NumericIO.UEXPONENT_SI,
 )
 newscope() do
 SI(v) = formatted(v, fmt)
+@test SI(0.75e9) == "0.750G"
 @test SI(2.718281828459045e5) == "0.000G"
 @test SI(2.718281828459045e6) == "0.003G"
 @test SI(2.718281828459045e7) == "0.027G"
