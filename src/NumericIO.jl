@@ -41,7 +41,7 @@ const ASCII_SUPERSCRIPT_NUMERALS = Char['0', '1', '2', '3', '4', '5', '6', '7', 
 #const ASCII_TIMES_SYMBOL = 'x'
 #const ASCII_MINUS_SYMBOL = '-'
 
-GRISU_FAILURE_WARNED = false
+RYU_FAILURE_WARNED = false
 
 
 #==Base types
@@ -125,12 +125,12 @@ IOFormatting(io::FormattedIO, ::Type{T}) where T<:Real = io.rfmt
 #Accessors:
 #charset(::IOFormattingReal) = ... #TODO: implement
 
-function warn_grisufail()
-	global GRISU_FAILURE_WARNED
-	if !GRISU_FAILURE_WARNED
-		@warn("Use of Grisu system failed.  Number display will be degraded.")
+function warn_ryufail()
+	global RYU_FAILURE_WARNED
+	if !RYU_FAILURE_WARNED
+		@warn("Use of Ryu system failed.  Number display will be degraded.")
 	end
-	GRISU_FAILURE_WARNED = true
+	RYU_FAILURE_WARNED = true
 end
 
 base10exp(v::AbstractFloat) = floor(log10(abs(v)))
@@ -182,117 +182,133 @@ end
 
 #==Main Algorithms
 ===============================================================================#
+#Compute string using Ryu, and extract info.
+function _get_digits(val, ndigits::Int)
+	usemaxdigits = (ndigits < 1)
+	if usemaxdigits
+		ndigits = 16 #Max precision to display if ndigits not specified
+		if iszero(val); ndigits = 1; end #Only display one zero when zero.
+	end
+	_buffer = Base.Ryu.writeexp(val,ndigits-1,true,false,true, UInt8('e'), UInt8('.'), true)
+	epos = findfirst('e', _buffer)
+	bufdigits = epos-3 #Excluding sign, "." & "e"
+	expval = parse(Int, SubString(_buffer,epos+1))
+
+	#Create buffer with just digits:
+	buffer = Array{Char}(undef, bufdigits)
+	buffer[1] = _buffer[2]
+	for i in 2:length(buffer)
+		buffer[i] = _buffer[i+2]
+	end
+
+	ndigits = usemaxdigits ? bufdigits : ndigits
+	return (buffer, expval, ndigits)
+end
 
 #Print everything before the exponential:
-function print_formatted_mantgrisu(io::IO, val::AbstractFloat, fmt::IOFormattingReal)
+function _print_formatted_mant_ryu(io::IO, val::AbstractFloat, fmt::IOFormattingReal)
+	DEC_CHAR = '.' #TODO: Internationalize? (ex: French uses ",")
+
 	if val < 0
 		write(io, fmt.minus)
 	elseif isnan(val)
 		write(io, "NaN")
 		return 0
-#TODO: show plus?
 	end
-	if isinf(val)
+	if isinf(val) #TODO: show plus with infinity?
 		write(io, fmt.inf)
 		return 0
 	end
 
 	#Aliases:
 	decfloating = fmt.decfloating #WANTCONST
-	decpos = fmt.decpos #Only valid if !decfloating
-	ndigits = fmt.ndigits
-	shortest = ndigits < 1 #WANTCONST
-	prec = shortest ? Base.Grisu.SHORTEST : Base.Grisu.PRECISION #WANTCONST
-	local pt_shifted
+	buffer, expval, ndigits = _get_digits(val, fmt.ndigits)
+	#@show buffer, expval, ndigits, fmt.ndigits
 
-	len, pt, neg = Base.Grisu.grisu(val, prec, ndigits)
-	buffer = Base.Grisu.DIGITS #Point to GRISU output buffer
-
-	#NOTE: pt is decimal point location in array (5x10EY has pt=Y+1)
-	if shortest; ndigits = len; end
-
+	wholedigits = 1 #Display 1 digit before decimal character
 	if decfloating
-		decpos = pt-1
 		if fmt.eng
-			engalign = 3 #WANTCONST: Show up to 3 digits above decimal before moving to the next 10^3 step
+			#=TODO: Allow user to set specify how to display:
+			 - 999n, 99.9n, 9.99n
+			 - 0.999u, 99.9n, 9.99n
+			 - ...
+			=#
 
-			#Targeted decimal position (show up to engalign digits above decimal):
-			decpos -= engalign-3
-			decpos = floor(Int, decpos/3)*3
+			#Align exponent to an engineering boundary (10^[3i])
+			expeng = floor(Int, expval/3)*3
+				Δ = expval-expeng
+				expval = expeng
+				wholedigits+=Δ
 		end
-
-		pt_shifted = pt - decpos
-	elseif 0 == val #&& !decfloating
-		pt_shifted = 1 #0*anything=0.  Just make output look good.
+	elseif iszero(val)
+		expval = fmt.decpos
 	else #!decfloating
-		pt_shifted = pt - decpos
+		Δ = expval-fmt.decpos #decpos: Only valid if !decfloating
+		expval = fmt.decpos
+		wholedigits+=Δ
+	end
 
-		if !shortest #Recompute ndgits & buffer.
-			#ndigits corresponds to "displayed" digits... not # of significant digits:
-			if pt_shifted < 2 #Some digits had to be clipped
-#TODO: Also don't have to recompute if "len" was so short that no rounding is necessary.
-				ndigits_disp = max(0, ndigits+pt_shifted-1)
-				#Recalculate buffer for new ndigits (avoid roundoff errors):
-				#TODO: Try to avoid re-calculation???
-				len, pt, neg = Base.Grisu.grisu(val, prec, ndigits_disp)
-				buffer = Base.Grisu.DIGITS #Point to GRISU output buffer
-			end
-			pt -= decpos #shift decimal point
+	bufused = 0
+	rmgdigits = ndigits-wholedigits #If we display all
+	if wholedigits > 0
+		a = min(wholedigits, length(buffer))
+		b = wholedigits-a
+		for i in 1:a
+			write(io, buffer[i])
 		end
-	end
-
-	grisuleft = len
-	wholeleft = max(0, pt_shifted)
-	fracleft = ndigits-max(1, wholeleft)
-	expleft = decpos
-	pdigits = pointer(buffer)
-
-	if wholeleft < 1
-		write(io, "0")
-	else
-		nchars = min(grisuleft, wholeleft)
-		unsafe_write(io, pdigits, nchars)
-		pdigits += nchars
-		wholeleft -= nchars
-		grisuleft -= nchars
-
-		for i in 1:wholeleft
-			write(io, "0")
+		for i in 1:b
+			write(io, '0')
 		end
+
+		if rmgdigits < 1
+			return expval
+		end
+		write(io, DEC_CHAR)
+		bufused = a
+	elseif 1==ndigits #No whole digits, so can only write 0:
+		write(io, '0')
+		return expval
+	else #No whole digits to write:
+		write(io, '0', DEC_CHAR)
+		usemaxdigits = (fmt.ndigits < 1)
+		rmgdigits = ndigits-1 #"-1" because leading "0" counts as a displayed digit
+		a = usemaxdigits ? (-wholedigits) : min(-wholedigits, rmgdigits)
+		for i in 1:a
+			write(io, '0')
+		end
+
+		#Recompute digits with new precision to ensure appropriate rounding:
+		rmgdigits -= a
+		if rmgdigits < 1
+			return expval
+		end
+		dispdigits = usemaxdigits ? 0 : rmgdigits
+		buffer, _expval_ign, rmgdigits = _get_digits(val, dispdigits)
+		#@show buffer, _expval_ign, rmgdigits
 	end
 
-	if fracleft < 1
-		return expleft
+	#Write remainging significant fractional digits:
+	bufrmg = length(buffer)-bufused
+	a = min(rmgdigits, bufrmg)
+	b = rmgdigits - a
+	for i in 1:a
+		write(io, buffer[bufused+i])
+	end
+	for i in 1:b
+		write(io, '0')
 	end
 
-	write(io, ".") #TODO: Internationalize: ex: French uses ",".
-
-	leadingzeros = decfloating ? 0 : max(0, -pt)
-	nzeros = min(leadingzeros, fracleft)
-	for i in 1:nzeros
-		write(io, "0")
-	end
-	fracleft -= nzeros
-
-	nchars = min(grisuleft, fracleft)
-	unsafe_write(io, pdigits, nchars)
-	fracleft -= nchars
-
-	for i in 1:fracleft
-		write(io, "0")
-	end
-
-	return expleft
+	return expval
 end
 
-#Display mantissa - using failsafe in case GRISU interface changes.
+#Display mantissa - using failsafe in case Ryu interface changes.
 function print_formatted_mant(io::IO, val::AbstractFloat, fmt::IOFormattingReal)
 	try
 #		throw(:TESTME) #TODO
-		return print_formatted_mantgrisu(io, val, fmt)
-	catch e #In case GRISU API changes:
+		return _print_formatted_mant_ryu(io, val, fmt)
+	catch e #In case Ryu API changes:
 #rethrow(e)
-		warn_grisufail()
+		warn_ryufail()
 		exp = base10exp(val)
 		if !isfinite(exp)
 			exp = 0
