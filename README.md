@@ -1,6 +1,6 @@
 # NumericIO.jl
 
-[![Build Status](https://travis-ci.org/ma-laforge/NumericIO.jl.svg?branch=master)](https://travis-ci.org/ma-laforge/NumericIO.jl)
+[![Build Status](https://github.com/ma-laforge/NumericIO.jl/workflows/CI/badge.svg)](https://github.com/ma-laforge/NumericIO.jl/actions?query=workflow%3ACI)
 
 ## Description
 
@@ -106,4 +106,4 @@ Note however, that `show()` is a lower level function, and this definition is mo
 
 Extensive compatibility testing of NumericIO.jl has not been performed.  The module has been tested using the following environment(s):
 
- - Windows / Linux / Julia-1.1.1
+ - Windows 10 / Linux / Julia-1.5.3
