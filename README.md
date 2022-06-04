@@ -62,11 +62,24 @@ It is also possible to generate the mantissa & exponent portions of a number sep
 
 ### Improved REPL output (Julia console)
 
-Users can make REPL outputs easier to read, simply by adding a few lines to their `~/.juliarc.jl` file:
+Users can make REPL outputs easier to read, simply by adding a few lines to their `~/.julia/config/startup.jl` file:
 
 ```
+import REPL
 using NumericIO
-Base.display(r::Base.REPL.REPLDisplay, v::Union{Float32,Float64}) = print(formatted(Base.REPL.outstream(r.repl), :SI, ndigits=4), v)
+
+#Change how Float32/64s are displayed on `REPLDisplay`:
+Base.display(r::REPL.REPLDisplay, v::Union{Float32,Float64}) = print(formatted(REPL.outstream(r.repl), :SI, ndigits=4), v)
+
+#Change how `Vectors` are displayed on `REPLDisplay`:
+function Base.display(r::REPL.REPLDisplay, v::Vector)
+	fio = formatted(REPL.outstream(r.repl), :SI, ndigits=4)
+	N = length(v)
+	println(REPL.outstream(r.repl), N, "-element ", typeof(v), ":")
+	for v_i in v
+		println(fio, v_i) #Use formatted output
+	end
+end
 ```
 
 This solution should be fairly safe: few programmers writing to REPL displays would later read back values from said display (failing the subsequent read operation).  The most likely issue with this application is that programmers expecting carefully formatted output would now have suboptimal-looking output.
@@ -106,4 +119,4 @@ Note however, that `show()` is a lower level function, and this definition is mo
 
 Extensive compatibility testing of NumericIO.jl has not been performed.  The module has been tested using the following environment(s):
 
- - Windows 10 / Linux / Julia-1.5.3
+ - Windows 10 / Linux / Julia-1.7.3
