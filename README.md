@@ -15,7 +15,7 @@ NumericIO.jl tries to provide the convenience of c++ `ios_base` configurability 
 
 To obtain a string representation of a `Real` value using SI prefixes, one can use the `formatted` function:
 
-	formatted(3.14159e-8, :SI, ndigits=3) # => "31.14n"
+	formatted(3.14159e-8, :SI, ndigits=3) # => "31.4n"
 
 Similarly, one can generate a string using scientific notation with the following:
 
