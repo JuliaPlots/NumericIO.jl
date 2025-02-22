@@ -1,6 +1,6 @@
 name = "NumericIO"
 uuid = "6c575b1c-77cb-5640-a5dc-a54116c90507"
-version = "0.3.2"
+version = "0.3.3"
 
 [deps]
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
