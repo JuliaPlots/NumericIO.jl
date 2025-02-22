@@ -1,6 +1,6 @@
 # NumericIO.jl
 
-[![Build Status](https://github.com/ma-laforge/NumericIO.jl/workflows/CI/badge.svg)](https://github.com/ma-laforge/NumericIO.jl/actions?query=workflow%3ACI)
+[![Build Status](https://github.com/JuliaPlots/NumericIO.jl/workflows/CI/badge.svg)](https://github.com/JuliaPlots/NumericIO.jl/actions?query=workflow%3ACI)
 
 ## Description
 
