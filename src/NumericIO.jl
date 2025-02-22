@@ -391,9 +391,7 @@ print_formatted(io::IO, v::Real, fmt::IOFormattingReal; showexp::Bool=true) =
 function string_formatted(v::Real, fmt::IOFormattingReal; showexp::Bool=true)
 	s = IOBuffer()
 	print_formatted(s, v, fmt, showexp=showexp)
-	d = s.data
-	resize!(d, s.size)
-	return String(d)
+	return String(take!(s))
 end
 
 
